@@ -1,0 +1,84 @@
+{
+  "name": "Autonomous Email Triage & Auto-Response",
+  "description": "Ingests incoming customer emails via webhook, analyzes sentiment and urgency, verifies draft response quality with guardrails, and dispatches the response via email.",
+  "status": "active",
+  "trigger_type": "webhook",
+  "metadata_json": {
+    "category": "Customer Communication",
+    "author": "Antigravity Engineering",
+    "version": "1.0.0"
+  },
+  "nodes": [
+    {
+      "id": "node_email_trigger",
+      "type": "trigger",
+      "name": "Incoming Support Email Webhook",
+      "config": {
+        "default_payload": {
+          "from_email": "sarah.connor@cyberdyne.io",
+          "subject": "System upgrade schedule and service availability",
+          "body": "Hi Support team, could you please confirm if the APAC server maintenance scheduled for this weekend will cause any downtime for production REST endpoints?"
+        }
+      },
+      "position": { "x": 100, "y": 150 }
+    },
+    {
+      "id": "node_triage_planner",
+      "type": "agent_planner",
+      "name": "AI Triage Planner Agent",
+      "config": {
+        "goal": "Classify email urgency, extract questions, and generate resolution plan",
+        "inputs": "{{steps.node_email_trigger.output.payload}}",
+        "constraints": [
+          "Preserve SLA timing targets",
+          "Categorize into Technical, Billing, or General"
+        ]
+      },
+      "position": { "x": 380, "y": 150 }
+    },
+    {
+      "id": "node_response_synthesizer",
+      "type": "agent_executor",
+      "name": "Response Synthesis Agent",
+      "config": {
+        "instruction": "Draft a clear, friendly, and precise support response addressing all points in the customer's query.",
+        "inputs": "{{steps.node_triage_planner.output.plan}}",
+        "system_role": "Senior Cloud Infrastructure Support Engineer",
+        "temperature": 0.4
+      },
+      "position": { "x": 680, "y": 150 }
+    },
+    {
+      "id": "node_quality_verifier",
+      "type": "agent_verifier",
+      "name": "Safety & Quality Verifier Agent",
+      "config": {
+        "candidate_output": "{{steps.node_response_synthesizer.output.output}}",
+        "criteria": [
+          "Polite and professional customer-facing tone",
+          "Answers the specific downtime inquiry directly",
+          "Contains no unverified internal credentials or debug logs"
+        ],
+        "minimum_confidence": 0.88
+      },
+      "position": { "x": 980, "y": 150 }
+    },
+    {
+      "id": "node_dispatch_email",
+      "type": "integration_email",
+      "name": "Dispatch Auto-Response",
+      "config": {
+        "to_email": "{{steps.node_email_trigger.output.payload.from_email}}",
+        "subject": "Re: {{steps.node_email_trigger.output.payload.subject}} [Automated Resolution]",
+        "body": "{{steps.node_response_synthesizer.output.output.response_draft}}"
+      },
+      "position": { "x": 1280, "y": 150 }
+    }
+  ],
+  "edges": [
+    { "id": "e_email_1", "source": "node_email_trigger", "target": "node_triage_planner" },
+    { "id": "e_email_2", "source": "node_triage_planner", "target": "node_response_synthesizer" },
+    { "id": "e_email_3", "source": "node_response_synthesizer", "target": "node_quality_verifier" },
+    { "id": "e_email_4", "source": "node_quality_verifier", "target": "node_dispatch_email" }
+  ]
+}

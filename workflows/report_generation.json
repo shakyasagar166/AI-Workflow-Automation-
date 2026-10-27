@@ -1,0 +1,81 @@
+{
+  "name": "Automated KPI Digest & Executive Briefing",
+  "description": "Scheduled cron automation that pulls platform performance metrics, generates analytical synthesis using an Execution Agent, audits report accuracy with a Verifier Agent, and broadcasts to external webhooks.",
+  "status": "active",
+  "trigger_type": "schedule",
+  "metadata_json": {
+    "category": "Reporting & Analytics",
+    "cadence": "Daily at 08:00 UTC",
+    "version": "1.0.0"
+  },
+  "nodes": [
+    {
+      "id": "node_schedule_trigger",
+      "type": "trigger",
+      "name": "Daily Scheduled Timer",
+      "config": {
+        "default_payload": {
+          "reporting_window": "past_24_hours",
+          "target_audience": "VP of Engineering & DevOps Leads",
+          "data_sources": ["api_gateway", "worker_pool", "database_cluster"]
+        }
+      },
+      "position": { "x": 100, "y": 200 }
+    },
+    {
+      "id": "node_report_planner",
+      "type": "agent_planner",
+      "name": "Digest Structuring Planner",
+      "config": {
+        "goal": "Structure executive summary sections, identify key outlier metrics, and allocate analytical sections",
+        "inputs": "{{steps.node_schedule_trigger.output.payload}}"
+      },
+      "position": { "x": 380, "y": 200 }
+    },
+    {
+      "id": "node_analytics_synthesizer",
+      "type": "agent_executor",
+      "name": "Executive Analytics Synthesizer",
+      "config": {
+        "instruction": "Synthesize a comprehensive KPI report detailing throughput, latency, error rates, and operational recommendations.",
+        "inputs": "{{steps.node_report_planner.output.plan}}",
+        "system_role": "Principal Systems Architect and Performance Analyst",
+        "temperature": 0.3
+      },
+      "position": { "x": 680, "y": 200 }
+    },
+    {
+      "id": "node_audit_verifier",
+      "type": "agent_verifier",
+      "name": "Data Accuracy & Sanity Verifier",
+      "config": {
+        "candidate_output": "{{steps.node_analytics_synthesizer.output.output}}",
+        "criteria": [
+          "Report contains executive summary and concrete metric calculations",
+          "No missing sections or unformatted placeholders",
+          "At least one actionable recommendation provided"
+        ],
+        "minimum_confidence": 0.9
+      },
+      "position": { "x": 980, "y": 200 }
+    },
+    {
+      "id": "node_slack_webhook",
+      "type": "integration_webhook",
+      "name": "Publish to Slack / Teams Webhook",
+      "config": {
+        "url": "https://api.example.com/webhook/kpi-reports",
+        "method": "POST",
+        "headers": { "X-Audit-Source": "ai-workflow-engine" },
+        "payload": "{{steps.node_analytics_synthesizer.output.output}}"
+      },
+      "position": { "x": 1280, "y": 200 }
+    }
+  ],
+  "edges": [
+    { "id": "e_rep_1", "source": "node_schedule_trigger", "target": "node_report_planner" },
+    { "id": "e_rep_2", "source": "node_report_planner", "target": "node_analytics_synthesizer" },
+    { "id": "e_rep_3", "source": "node_analytics_synthesizer", "target": "node_audit_verifier" },
+    { "id": "e_rep_4", "source": "node_audit_verifier", "target": "node_slack_webhook" }
+  ]
+}

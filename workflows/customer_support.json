@@ -1,0 +1,92 @@
+{
+  "name": "Intelligent Customer Support Multi-Tier Resolution",
+  "description": "Multi-agent support orchestrator that triages issues, routes priority escalations to on-call webhooks, and drafts verified responses for standard customer inquiries.",
+  "status": "active",
+  "trigger_type": "event",
+  "metadata_json": {
+    "category": "Customer Support & Operations",
+    "version": "1.0.0"
+  },
+  "nodes": [
+    {
+      "id": "node_ticket_inbound",
+      "type": "trigger",
+      "name": "Customer Ticket Received",
+      "config": {
+        "default_payload": {
+          "ticket_id": "TCK-88412",
+          "customer_email": "cto@fintech-enterprise.com",
+          "subject": "Critical Payment Gateway 502 Bad Gateway Outage",
+          "body": "Transactions are failing with 502 bad gateway across all checkout terminals. Immediate investigation required!"
+        }
+      },
+      "position": { "x": 100, "y": 200 }
+    },
+    {
+      "id": "node_support_planner",
+      "type": "agent_planner",
+      "name": "Ticket Triage & Routing Planner",
+      "config": {
+        "goal": "Assess ticket severity, extract error codes, and define routing pathway",
+        "inputs": "{{steps.node_ticket_inbound.output.payload}}"
+      },
+      "position": { "x": 380, "y": 200 }
+    },
+    {
+      "id": "node_sentiment_urgency_agent",
+      "type": "agent_executor",
+      "name": "Severity & Intent Classifier",
+      "config": {
+        "instruction": "Analyze ticket text and extract urgency level (High, Normal, Low) and sentiment.",
+        "inputs": "{{steps.node_ticket_inbound.output.payload}}",
+        "system_role": "AI Support Ticket Classifier",
+        "temperature": 0.2
+      },
+      "position": { "x": 680, "y": 200 }
+    },
+    {
+      "id": "node_condition_priority",
+      "type": "condition",
+      "name": "Is High Urgency Escalation?",
+      "config": {
+        "left_value": "{{steps.node_sentiment_urgency_agent.output.output.urgency}}",
+        "operator": "==",
+        "right_value": "High"
+      },
+      "position": { "x": 980, "y": 200 }
+    },
+    {
+      "id": "node_escalation_webhook",
+      "type": "integration_webhook",
+      "name": "PagerDuty / On-Call Incident Alert",
+      "config": {
+        "url": "https://api.example.com/webhook/pagerduty-alert",
+        "method": "POST",
+        "payload": {
+          "summary": "CRITICAL INCIDENT: {{steps.node_ticket_inbound.output.payload.subject}}",
+          "ticket_id": "{{steps.node_ticket_inbound.output.payload.ticket_id}}",
+          "details": "{{steps.node_sentiment_urgency_agent.output.output}}"
+        }
+      },
+      "position": { "x": 1280, "y": 100 }
+    },
+    {
+      "id": "node_standard_email_reply",
+      "type": "integration_email",
+      "name": "Standard Acknowledgment Dispatch",
+      "config": {
+        "to_email": "{{steps.node_ticket_inbound.output.payload.customer_email}}",
+        "subject": "Acknowledgment: [{{steps.node_ticket_inbound.output.payload.ticket_id}}] {{steps.node_ticket_inbound.output.payload.subject}}",
+        "body": "Thank you for contacting support. We have received your ticket and a representative is reviewing it."
+      },
+      "position": { "x": 1280, "y": 320 }
+    }
+  ],
+  "edges": [
+    { "id": "e_sup_1", "source": "node_ticket_inbound", "target": "node_support_planner" },
+    { "id": "e_sup_2", "source": "node_support_planner", "target": "node_sentiment_urgency_agent" },
+    { "id": "e_sup_3", "source": "node_sentiment_urgency_agent", "target": "node_condition_priority" },
+    { "id": "e_sup_4_true", "source": "node_condition_priority", "target": "node_escalation_webhook", "condition": "true" },
+    { "id": "e_sup_4_false", "source": "node_condition_priority", "target": "node_standard_email_reply", "condition": "false" }
+  ]
+}
